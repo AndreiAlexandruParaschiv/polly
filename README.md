@@ -45,14 +45,54 @@ These instructions will help you set up and run the `hreflang-check.py` script o
 
 ## Running the Checker Script
 
-Once the setup is complete, you can use the `hreflang-check.py` script located in the `polly` subdirectory to check a URL:
+Once the setup is complete, you can use the `hreflang-check.py` script located in the `polly` subdirectory.
 
-```bash
-python3 polly/hreflang-check.py "https://www.example.com/"
-```
-Replace `"https://www.example.com/"` with the URL you want to check.
+There are a few ways to run the script:
 
-### Example
+1.  **Check a single URL directly:**
+    Provide the URL as a command-line argument.
+    ```bash
+    python3 polly/hreflang-check.py "https://www.example.com/"
+    ```
+    Replace `"https://www.example.com/"` with the URL you want to check.
+
+2.  **Check multiple URLs from a custom file:**
+    Provide the path to a text file containing a list of URLs (one URL per line).
+    ```bash
+    python3 polly/hreflang-check.py path/to/your_urls.txt
+    ```
+
+3.  **Check multiple URLs from the default `urls_to_check.txt` file:**
+    If you run the script without any arguments, it will look for a file named `urls_to_check.txt` in the project\'s root directory (`polly/`). Create this file and add one URL per line.
+    ```bash
+    # First, ensure urls_to_check.txt exists in the polly/ directory
+    # Then run:
+    python3 polly/hreflang-check.py
+    ```
+
+### Example using `urls_to_check.txt`
+
+1.  Create a file named `urls_to_check.txt` in the `/Users/paraschi/Documents/Adobe/Repos/polly/` directory with content like:
+    ```
+    https://www.example.com/page1
+    https://www.example.org/anotherpage
+    https://www.sample-domain.net/
+    ```
+2.  Run the script:
+    ```bash
+    python3 polly/hreflang-check.py
+    ```
+    The script will process each URL from the file.
+
+### Output
+
+By default, the script prints a detailed analysis for each URL to the console.
+
+Additionally, the script saves the results in a CSV file located in a `results` directory (which will be created in the project root if it doesn't exist). 
+- The CSV filename is timestamped (e.g., `hreflang_results_YYYYMMDD_HHMMSS.csv`).
+- Each row in the CSV corresponds to a checked URL, with columns detailing the status (OK/FAIL) and reasons for failure for various hreflang checks.
+
+### Example checking a single URL
 ```bash
 python3 polly/hreflang-check.py "https://www.facebook.com/"
 ```
