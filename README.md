@@ -15,15 +15,56 @@ You can also check various aspects of a page, see whether the pages it includes 
 	print my_page.no_return_tag_pages()
 	print my_page.non_retrievable_pages()
 
-# Using polly
+# Getting Started
 
-Simply install it with pip:
+These instructions will help you set up and run the `hreflang-check.py` script on your local machine.
 
-	pip install polly
+## Prerequisites
 
-Included with polly is a small script for checking a URL:
+- Python 3 (ensure it's added to your PATH)
 
-	python hreflang-check.py  "https://www.facebook.com/"
+## Setup and Installation
+
+1.  **Clone the repository (if you haven't already):**
+    ```bash
+    git clone <repository_url>
+    cd polly
+    ```
+
+2.  **Create and activate a virtual environment (recommended):**
+    ```bash
+    python3 -m venv venv
+    source venv/bin/activate  # On Windows use `venv\\\\Scripts\\\\activate`
+    ```
+
+3.  **Install dependencies:**
+    Navigate to the root directory of the project (where `requirements.txt` is located) and run:
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+## Running the Checker Script
+
+Once the setup is complete, you can use the `hreflang-check.py` script located in the `polly` subdirectory to check a URL:
+
+```bash
+python3 polly/hreflang-check.py "https://www.example.com/"
+```
+Replace `"https://www.example.com/"` with the URL you want to check.
+
+### Example
+```bash
+python3 polly/hreflang-check.py "https://www.facebook.com/"
+```
+
+# Using polly as a library
+
+If you want to use `polly` as a library in your own Python projects, you can install it via pip (ensure it's published to PyPI or install from a local/git source if not):
+
+```bash
+pip install polly
+```
+Then you can import and use it in your Python code as shown in the introduction.
 
 # To Do
 
