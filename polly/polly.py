@@ -1,5 +1,5 @@
 from collections import defaultdict
-from urlparse import urljoin
+from urllib.parse import urljoin
 from http_parse import http_headers_to_dict
 
 import lxml.html
@@ -31,6 +31,7 @@ class PollyPage(object):
         self.hreflang_entries_from_http = {}
         self.issues_for_key = {}
         self.issues_for_url = {}
+        self.canonical_url = None
         self.alternate_pages = {}
         self.alternate_languages = set()
         self.alternate_regions = set()
@@ -79,15 +80,13 @@ class PollyPage(object):
         parsed_tag = tags.tag(hreflang_value)
 
         # Extract the language
-        language = str(parsed_tag.language.description[0].encode('ascii',
-                                                                 errors='xmlcharrefreplace')
-                       if parsed_tag.language else "Unknown")
+        language = (parsed_tag.language.description[0]
+                    if parsed_tag.language else "Unknown")
 
         # Extract the region
         # Differentiate between none being specified and one not
         # being recognised
-        region = (str(parsed_tag.region.description[0].encode('ascii',
-                                                              errors='xmlcharrefreplace'))
+        region = (parsed_tag.region.description[0]
                   if parsed_tag.region else "Unknown"
                   if len(str(parsed_tag)) > 3 else None)
 
@@ -117,7 +116,8 @@ class PollyPage(object):
 
         # Grab the page and pull out the hreflang <link> elements
         try:
-            r = requests.get(self.base_url, allow_redirects=False, timeout=5)
+            headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36'}
+            r = requests.get(self.base_url, headers=headers, allow_redirects=False, timeout=5)
             self.headers = r.headers
         except Exception as e:
             raise ValueError(str(e))
@@ -127,6 +127,12 @@ class PollyPage(object):
             raise ValueError("HTTP Response Code was not 200.")
 
         tree = lxml.html.fromstring(r.text)
+        
+        # Find the canonical URL
+        canonical_elements = tree.xpath('//link[@rel="canonical"]')
+        if canonical_elements:
+            self.canonical_url = canonical_elements[0].get('href')
+
         elements = tree.xpath("//link[@hreflang]")
 
         # concert a link element into a tuple of the clean language
@@ -160,7 +166,7 @@ class PollyPage(object):
 
     def get_http_headers(self):
         http_headers = defaultdict(list)
-        for headers, values in http_headers_to_dict(self.headers).iteritems():
+        for headers, values in http_headers_to_dict(self.headers).items():
             http_headers[self.format_hreflang_value(headers)].append(values)
             self.alternate_languages.add(self.hreflang_value_language(headers))
             region = self.hreflang_value_region(headers)
@@ -172,9 +178,9 @@ class PollyPage(object):
         hreflang_entries = defaultdict(set)
         html_hreflangs = self.hreflang_entries_from_html
         http_hreflangs = self.hreflang_entries_from_http
-        for hreflang_value, urls in html_hreflangs.iteritems():
+        for hreflang_value, urls in html_hreflangs.items():
             hreflang_entries[hreflang_value].update(urls)
-        for hreflang_value, urls in http_hreflangs.iteritems():
+        for hreflang_value, urls in http_hreflangs.items():
             hreflang_entries[hreflang_value].update(urls)
 
         self.hreflang_entries = dict(hreflang_entries)
@@ -224,7 +230,10 @@ class PollyPage(object):
                 "has_warnings": False,
                 "multiple_entries": False,
                 "unknown_language": False,
-                "unknown_region": False
+                "unknown_region": False,
+                "non_retrievable": False,
+                "no_return_tag": False,
+                "canonical_conflict": False,
             }
 
         for url in self.alternate_urls():
@@ -232,9 +241,10 @@ class PollyPage(object):
                 "has_errors": False,
                 "non_retrievable": False,
                 "no_return_tag": False,
+                "canonical_conflict": False,
             }
 
-        for key, urls in self.hreflang_entries.iteritems():
+        for key, urls in self.hreflang_entries.items():
 
             if self.hreflang_value_language(key) == "Unknown":
                 self.issues_for_key[key]['has_errors'] = True
@@ -260,6 +270,11 @@ class PollyPage(object):
                 if url in no_return_tag_pages:
                     self.issues_for_url[url]['no_return_tag'] = True
                     self.issues_for_url[url]['has_errors'] = True
+
+        for url, page in self.alternate_pages.items():
+            if page.canonical_url and page.base_url != page.canonical_url and page.hreflang_entries:
+                self.issues_for_url[url]['has_errors'] = True
+                self.issues_for_url[url]['canonical_conflict'] = True
 
     def alternate_urls(self, include_x_default=True):
         """ Returns a set of all the alternate URLs encountered.
@@ -324,7 +339,7 @@ class PollyPage(object):
         self.fetch_alternate_pages()
         urls = set()
 
-        for url, page in self.alternate_pages.iteritems():
+        for url, page in self.alternate_pages.items():
 
             if url == self.base_url:
                 continue
@@ -335,32 +350,12 @@ class PollyPage(object):
         return urls
 
     def non_retrievable_pages(self):
+        """ Return any pages that could not be retrieved """
+        return [url for url, page in self.alternate_pages.items() if not getattr(page, 'status_code', None)]
 
-        self.fetch_alternate_pages()
-        urls = set()
-
-        for url, page in self.alternate_pages.iteritems():
-
-            if url == self.base_url:
-                continue
-
-            if page.status_code != 200:
-                urls.add(page.url)
-
-        return urls
-
-    @property
-    def hreflang_entries_to_tuples(self):
-        """ Splits hreflang_keys into a dictionary containing with hreflang_keys
-            as the keys and a tuple of (language, region) as the value.
-        """
-        hreflang_entries_to_tuples = {}
-        for key in self.hreflang_keys:
-            formatted_hreflang_value, language, region = self.parse_hreflang_value(
-                key)
-            hreflang_entries_to_tuples[key] = (language, region)
-
-        return hreflang_entries_to_tuples
+    def canonical_conflict_pages(self):
+        """ Return pages with a canonical conflict. """
+        return [url for url, issues in self.issues_for_url.items() if issues.get('canonical_conflict')]
 
     @property
     def languages_missing_standalone_entry(self):
@@ -378,3 +373,16 @@ class PollyPage(object):
                 associated.add(value[0])
 
         return associated.difference(unassociated)
+
+    @property
+    def hreflang_entries_to_tuples(self):
+        """ Splits hreflang_keys into a dictionary containing with hreflang_keys
+            as the keys and a tuple of (language, region) as the value.
+        """
+        hreflang_entries_to_tuples = {}
+        for key in self.hreflang_keys:
+            formatted_hreflang_value, language, region = self.parse_hreflang_value(
+                key)
+            hreflang_entries_to_tuples[key] = (language, region)
+
+        return hreflang_entries_to_tuples

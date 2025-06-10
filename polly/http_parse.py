@@ -9,7 +9,8 @@ def http_headers_to_dict(headers):
         for ihead in iheads:
             if len(ihead) >= 3:
                 r = re.search(r'hreflang=(.*)', ihead[2])
-                hreflang = r.group(1).strip("'")
-                url = ihead[0].strip()[1:-2]
-                hreflang_entries[hreflang] = url
+                if r:
+                    hreflang = r.group(1).strip("'")
+                    url = ihead[0].strip()[1:-2]
+                    hreflang_entries[hreflang] = url
     return hreflang_entries

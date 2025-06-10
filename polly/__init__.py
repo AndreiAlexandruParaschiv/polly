@@ -1,1 +1,2 @@
-from polly import *
+from .polly import PollyPage
+
